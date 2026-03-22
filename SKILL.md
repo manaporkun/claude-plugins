@@ -15,7 +15,7 @@ Present output to the user at each checkpoint marked with STOP.
 
 ## Environment
 
-Available external agents: !`(which gemini >/dev/null 2>&1 && echo "gemini") ; (which codex >/dev/null 2>&1 && echo "codex")`
+Available external agents: !`(which gemini >/dev/null 2>&1 && echo "gemini") ; (which codex >/dev/null 2>&1 && echo "codex") ; (which ollama >/dev/null 2>&1 && echo "ollama (models: $(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' | tr '\n' ', ' | sed 's/,$//'))")`
 Project config: !`cat .claude/do-config.json 2>/dev/null || echo "none"`
 Project indicators: !`ls -1 package.json Podfile *.xcodeproj pyproject.toml go.mod Cargo.toml Makefile 2>/dev/null || echo "unknown project type"`
 
@@ -25,10 +25,14 @@ If `.claude/do-config.json` exists, use its values. Schema:
 
 ```json
 {
-  "reviewAgents": ["gemini"],
-  "reviewAgentCommands": {
+  "agents": {
+    "planReview": ["ollama:qwen2.5-coder", "gemini"],
+    "codeReview": ["gemini", "codex"]
+  },
+  "agentCommands": {
     "gemini": "cat {file} | gemini -p \"Review the content provided via stdin. Respond in plain text.\" -o text",
-    "codex": "codex exec \"$(cat {file})\""
+    "codex": "codex exec \"$(cat {file})\"",
+    "ollama": "cat {file} | ollama run {model}"
   },
   "qc": {
     "test": "npm test",
@@ -39,7 +43,17 @@ If `.claude/do-config.json` exists, use its values. Schema:
 }
 ```
 
-The `reviewAgentCommands` field is optional — if omitted, use the default commands listed in Phase 2.
+### Agent routing
+
+The `agents` field controls which agent is used per phase. Each entry is an ordered list — the skill tries the first available agent and falls back to the next.
+
+Agent format:
+- `"gemini"` — Gemini CLI
+- `"codex"` — Codex CLI
+- `"ollama:<model>"` — Ollama with a specific model (e.g. `"ollama:qwen2.5-coder"`)
+
+If `agents` is omitted, all phases use the first available agent detected in the environment.
+The `agentCommands` field is optional — if omitted, use the default commands listed in Phase 2.
 If no config file exists, auto-detect everything from the environment output above.
 
 ---
@@ -70,11 +84,13 @@ If no config file exists, auto-detect everything from the environment output abo
    - `{PLAN}` → the full plan content
    - `{CONTEXT}` → brief codebase context (key file paths, interfaces involved)
 3. Write the assembled prompt to `/tmp/do-plan-review-${CLAUDE_SESSION_ID}.md`
-4. Call the first available external agent (with a 120-second timeout):
+4. Select the agent: use the first available entry from `agents.planReview` in config, or fall back to the first detected agent.
+5. Call the selected agent (with a 120-second timeout):
    - **Gemini**: `timeout 120 sh -c 'cat /tmp/do-plan-review-${CLAUDE_SESSION_ID}.md | gemini -p "Review the implementation plan provided via stdin. Respond in plain text." -o text'`
    - **Codex**: `timeout 120 codex exec "$(cat /tmp/do-plan-review-${CLAUDE_SESSION_ID}.md)"`
-   - **Custom**: If `reviewAgentCommands` is defined in config, use that command pattern with `{file}` replaced by the temp file path
-   - If the agent call times out or fails, note the failure and continue to the checkpoint
+   - **Ollama**: `timeout 120 sh -c 'cat /tmp/do-plan-review-${CLAUDE_SESSION_ID}.md | ollama run <model>'` — replace `<model>` with the model from the agent string (e.g. `ollama:qwen2.5-coder` → `qwen2.5-coder`)
+   - **Custom**: If `agentCommands` defines a command for this agent, use it with `{file}` replaced by the temp file path and `{model}` replaced by the model name
+   - If the agent call times out or fails, try the next agent in the list. If all fail, note the failure and continue to the checkpoint.
 5. Capture and analyze the feedback
 6. If the feedback suggests significant improvements:
    - Revise the plan
@@ -139,8 +155,8 @@ Maximum **3 iterations** per failing command. If still failing after 3 attempts,
    - `{PLAN}` → the approved plan content
    - `{DIFF}` → the full diff output
 4. Write to `/tmp/do-code-review-${CLAUDE_SESSION_ID}.md`
-5. Call external agent (same method and timeout as Phase 2)
-6. For **Codex** specifically, you may also try `codex review` as an alternative
+5. Select the agent: use the first available entry from `agents.codeReview` in config, or fall back to the first detected agent.
+6. Call the selected agent (same invocation patterns and timeout as Phase 2). For **Codex** specifically, you may also try `codex review` as an alternative.
 7. Analyze the feedback:
    - Fix **CRITICAL** issues immediately
    - Note **WARNING**s and fix if straightforward
