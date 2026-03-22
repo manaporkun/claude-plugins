@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.1] - 2026-03-22
+
+### Fixed
+
+- **Phase numbering consistency** — Promoted Approve to its own Phase 3 and renumbered all phases 1-6, matching README documentation.
+- **BUILD vs IMPLEMENT naming** — README diagram now says "IMPL" to match SKILL.md phase naming.
+- **Missing `requirements.txt` in project detection** — Python projects using `requirements.txt` are now detected alongside `pyproject.toml`.
+- **Temp file cleanup on failure** — Cleanup instructions now explicitly require running even if the agent call failed or timed out.
+
+### Added
+
+- **Config validation** — `do-config.json` is now validated for correct shape before use; malformed config falls back to auto-detection with a warning.
+- **`$CLAUDE_SKILL_DIR` documentation** — Inline note explaining the variable is injected by Claude Code at runtime.
+- **Privacy note** — README now warns that cloud agents (Gemini, Codex) receive plan and diff content.
+
 ## [1.1.0] - 2026-03-22
 
 ### Security
