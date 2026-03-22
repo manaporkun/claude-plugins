@@ -5,7 +5,6 @@ description: >
   quality control, present. Use /do <task description> for any feature, bug fix, or task.
 disable-model-invocation: true
 argument-hint: <task description>
-effort: high
 ---
 
 # /do — Structured Task Workflow
@@ -13,11 +12,40 @@ effort: high
 Execute the following phases strictly in order. Do not skip phases.
 Present output to the user at each checkpoint marked with STOP.
 
-## Environment
+## Environment Detection
 
-Available external agents: !`(which gemini >/dev/null 2>&1 && echo "gemini") ; (which codex >/dev/null 2>&1 && echo "codex") ; (which ollama >/dev/null 2>&1 && echo "ollama (models: $(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' | tr '\n' ', ' | sed 's/,$//'))")`
-Project config: !`cat .claude/do-config.json 2>/dev/null || echo "none"`
-Project indicators: !`ls -1 package.json Podfile *.xcodeproj pyproject.toml go.mod Cargo.toml Makefile 2>/dev/null || echo "unknown project type"`
+Before starting Phase 1, detect available agents and project context.
+
+### Agent detection (cached)
+
+Agent availability is cached at `~/.claude/do-env.json` to avoid redundant `which` checks on every invocation.
+
+**If `$ARGUMENTS` contains `--refresh-env`**: run `rm ~/.claude/do-env.json 2>/dev/null`, then strip `--refresh-env` from the task description before proceeding.
+
+1. **Read cache**: `cat ~/.claude/do-env.json 2>/dev/null`
+2. **If cache exists and is valid JSON**:
+   - Use the `agents` array and `ollamaModels` array from the cache
+   - **Validate** (only if `agents` is non-empty): run `which <first-agent-in-list> 2>/dev/null` to confirm it's still installed. If validation fails or `agents` is empty, discard cache and proceed to step 3.
+3. **If cache is missing or invalid** — run full detection:
+   - `which gemini 2>/dev/null`
+   - `which codex 2>/dev/null`
+   - `which ollama 2>/dev/null`
+   - If ollama was found: `ollama list 2>/dev/null`
+   - **Save cache**: write a JSON file to `~/.claude/do-env.json` with this structure:
+     ```json
+     { "agents": ["gemini", "codex"], "ollamaModels": ["qwen2.5-coder"], "detectedAt": "2026-03-22T14:25:00Z" }
+     ```
+     Use only the agent names that were found. Use the Bash tool to write the file, e.g.:
+     `sh -c 'echo "{\"agents\":[\"gemini\",\"codex\"],\"ollamaModels\":[],\"detectedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > ~/.claude/do-env.json'`
+
+### Project detection (always runs)
+
+These are project-specific and must be checked every time:
+
+1. **Project config**: `cat .claude/do-config.json 2>/dev/null`
+2. **Project type**: `sh -c 'ls -1 package.json Podfile *.xcodeproj pyproject.toml go.mod Cargo.toml Makefile 2>/dev/null || echo "no project files"'`
+
+Record which agents are available and proceed. If no external agents are found, skip external review phases.
 
 ### Configuration
 
@@ -91,8 +119,8 @@ If no config file exists, auto-detect everything from the environment output abo
    - **Ollama**: `timeout 120 sh -c 'cat /tmp/do-plan-review-${CLAUDE_SESSION_ID}.md | ollama run <model>'` — replace `<model>` with the model from the agent string (e.g. `ollama:qwen2.5-coder` → `qwen2.5-coder`)
    - **Custom**: If `agentCommands` defines a command for this agent, use it with `{file}` replaced by the temp file path and `{model}` replaced by the model name
    - If the agent call times out or fails, try the next agent in the list. If all fail, note the failure and continue to the checkpoint.
-5. Capture and analyze the feedback
-6. If the feedback suggests significant improvements:
+6. Capture and analyze the feedback
+7. If the feedback suggests significant improvements:
    - Revise the plan
    - Update the saved plan file
    - Note what changed and why

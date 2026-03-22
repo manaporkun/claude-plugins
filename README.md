@@ -40,16 +40,21 @@ A Claude Code skill that turns any task into a systematic, quality-controlled wo
 
 ## Installation
 
-### From GitHub
+### As a Claude Code Plugin
 
 ```bash
-git clone <repo> /tmp/do-skill
-cp -r /tmp/do-skill/do ~/.claude/skills/do
+claude plugin add manaporkun/task-workflow-skill
 ```
 
-### Manual
+### Direct (symlink)
 
-Copy the `do/` directory to `~/.claude/skills/`.
+```bash
+git clone https://github.com/manaporkun/task-workflow-skill.git ~/Documents/Projects/task-workflow-skill
+cd ~/Documents/Projects/task-workflow-skill
+./install.sh
+```
+
+This creates a symlink from `~/.claude/skills/do` to the repo's `skills/do/` directory, so updates via `git pull` take effect immediately.
 
 ## Usage
 
@@ -58,6 +63,18 @@ Copy the `do/` directory to `~/.claude/skills/`.
 /do Fix the race condition in the WebSocket handler
 /do Refactor the auth middleware to use JWT
 ```
+
+### Environment Cache
+
+The skill caches detected agent availability (Gemini, Codex, Ollama) at `~/.claude/do-env.json` so it doesn't re-run `which` checks on every invocation. The cache is created automatically on first run.
+
+To force a re-detection (e.g. after installing or removing an agent CLI):
+
+```
+/do --refresh-env <task description>
+```
+
+Or delete the cache manually: `rm ~/.claude/do-env.json`
 
 ## Configuration
 
@@ -144,12 +161,18 @@ For other project types, specify QC commands in `.claude/do-config.json`.
 ## File Structure
 
 ```
-do/
-├── SKILL.md              # Main workflow orchestrator
-├── README.md             # This file
-└── prompts/
-    ├── plan-review.md    # Template: external agent plan review
-    └── code-review.md    # Template: external agent code review
+task-workflow-skill/
+├── .claude-plugin/
+│   └── plugin.json           # Plugin manifest
+├── skills/
+│   └── do/
+│       ├── SKILL.md          # Main workflow orchestrator
+│       └── prompts/
+│           ├── plan-review.md    # Template: external agent plan review
+│           └── code-review.md    # Template: external agent code review
+├── install.sh                # Symlink installer for direct use
+├── README.md                 # This file
+└── LICENSE
 ```
 
 ## How It Works
