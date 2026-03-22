@@ -88,7 +88,7 @@ Optionally create `.claude/do-config.json` in your project root:
   },
   "agentCommands": {
     "gemini": "cat {file} | gemini -p \"Review the content via stdin.\" -o text",
-    "codex": "codex exec \"$(cat {file})\"",
+    "codex": "cat {file} | codex exec -q -",
     "ollama": "cat {file} | ollama run {model}"
   },
   "qc": {
@@ -171,6 +171,7 @@ task-workflow-skill/
 │           ├── plan-review.md    # Template: external agent plan review
 │           └── code-review.md    # Template: external agent code review
 ├── install.sh                # Symlink installer for direct use
+├── CHANGELOG.md              # Version history
 ├── README.md                 # This file
 └── LICENSE
 ```
