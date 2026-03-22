@@ -12,6 +12,12 @@ argument-hint: <task description>
 Execute the following phases strictly in order. Do not skip phases.
 Present output to the user at each checkpoint marked with STOP.
 
+## Input Validation
+
+If `$ARGUMENTS` is empty or contains only whitespace (after stripping `--refresh-env` if present):
+- Respond with: "Usage: `/do <task description>` — describe what you want to build, fix, or refactor."
+- **STOP. Do not proceed to any phase.**
+
 ## Environment Detection
 
 Before starting Phase 1, detect available agents and project context.
@@ -59,7 +65,7 @@ If `.claude/do-config.json` exists, use its values. Schema:
   },
   "agentCommands": {
     "gemini": "cat {file} | gemini -p \"Review the content provided via stdin. Respond in plain text.\" -o text",
-    "codex": "codex exec \"$(cat {file})\"",
+    "codex": "cat {file} | codex exec -q -",
     "ollama": "cat {file} | ollama run {model}"
   },
   "qc": {
@@ -111,16 +117,18 @@ If no config file exists, auto-detect everything from the environment output abo
    - `{TASK}` → the task description ($ARGUMENTS)
    - `{PLAN}` → the full plan content
    - `{CONTEXT}` → brief codebase context (key file paths, interfaces involved)
-3. Write the assembled prompt to `/tmp/do-plan-review-${CLAUDE_SESSION_ID}.md`
+3. Create a temp file and write the assembled prompt to it:
+   `PLAN_REVIEW_FILE=$(mktemp /tmp/do-plan-review-XXXXXX.md)` then write the prompt content to `$PLAN_REVIEW_FILE`
 4. Select the agent: use the first available entry from `agents.planReview` in config, or fall back to the first detected agent.
 5. Call the selected agent (with a 120-second timeout):
-   - **Gemini**: `timeout 120 sh -c 'cat /tmp/do-plan-review-${CLAUDE_SESSION_ID}.md | gemini -p "Review the implementation plan provided via stdin. Respond in plain text." -o text'`
-   - **Codex**: `timeout 120 codex exec "$(cat /tmp/do-plan-review-${CLAUDE_SESSION_ID}.md)"`
-   - **Ollama**: `timeout 120 sh -c 'cat /tmp/do-plan-review-${CLAUDE_SESSION_ID}.md | ollama run <model>'` — replace `<model>` with the model from the agent string (e.g. `ollama:qwen2.5-coder` → `qwen2.5-coder`)
-   - **Custom**: If `agentCommands` defines a command for this agent, use it with `{file}` replaced by the temp file path and `{model}` replaced by the model name
+   - **Gemini**: `timeout 120 sh -c 'cat $PLAN_REVIEW_FILE | gemini -p "Review the implementation plan provided via stdin. Respond in plain text." -o text'`
+   - **Codex**: `timeout 120 sh -c 'cat $PLAN_REVIEW_FILE | codex exec -q -'`
+   - **Ollama**: `timeout 120 sh -c 'cat $PLAN_REVIEW_FILE | ollama run <model>'` — replace `<model>` with the model from the agent string (e.g. `ollama:qwen2.5-coder` → `qwen2.5-coder`)
+   - **Custom**: If `agentCommands` defines a command for this agent, use it with `{file}` replaced by `$PLAN_REVIEW_FILE` and `{model}` replaced by the model name
    - If the agent call times out or fails, try the next agent in the list. If all fail, note the failure and continue to the checkpoint.
-6. Capture and analyze the feedback
-7. If the feedback suggests significant improvements:
+6. Clean up: `rm -f $PLAN_REVIEW_FILE`
+7. Capture and analyze the feedback
+8. If the feedback suggests significant improvements:
    - Revise the plan
    - Update the saved plan file
    - Note what changed and why
@@ -175,16 +183,20 @@ Maximum **3 iterations** per failing command. If still failing after 3 attempts,
 > If no external agent is available, skip to Phase 5.
 
 1. Generate a diff of all changes including new untracked files:
-   - `git add -N .` (intent-to-add untracked files so they appear in diff)
-   - `git diff HEAD` (captures both staged, unstaged, and new files)
+   - Identify new untracked files created during implementation (use `git ls-files --others --exclude-standard` and filter to files relevant to the plan)
+   - `git add -N <file1> <file2> ...` only for those plan-relevant new files (do NOT use `git add -N .` — it would expose unrelated files like `.env` or credentials to the external agent)
+   - `git diff HEAD` (captures both staged, unstaged, and intent-to-add files)
+   - If the diff exceeds 15,000 lines, truncate to the most relevant files (prioritize files listed in the plan) and note the truncation in the review prompt
 2. Read the prompt template from `${CLAUDE_SKILL_DIR}/prompts/code-review.md`
 3. Build the review prompt by replacing placeholders:
    - `{TASK}` → the task description ($ARGUMENTS)
    - `{PLAN}` → the approved plan content
    - `{DIFF}` → the full diff output
-4. Write to `/tmp/do-code-review-${CLAUDE_SESSION_ID}.md`
+4. Create a temp file and write the review prompt to it:
+   `CODE_REVIEW_FILE=$(mktemp /tmp/do-code-review-XXXXXX.md)` then write the prompt content to `$CODE_REVIEW_FILE`
 5. Select the agent: use the first available entry from `agents.codeReview` in config, or fall back to the first detected agent.
-6. Call the selected agent (same invocation patterns and timeout as Phase 2). For **Codex** specifically, you may also try `codex review` as an alternative.
+6. Call the selected agent (same invocation patterns and timeout as Phase 2, using `$CODE_REVIEW_FILE` as the temp file). For **Codex** specifically, you may also try `codex review` as an alternative.
+   Clean up after the agent call: `rm -f $CODE_REVIEW_FILE`
 7. Analyze the feedback:
    - Fix **CRITICAL** issues immediately
    - Note **WARNING**s and fix if straightforward
