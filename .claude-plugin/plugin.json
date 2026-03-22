@@ -1,0 +1,16 @@
+{
+  "name": "task-workflow-skill",
+  "description": "Structured task execution with multi-agent review: plan, analyze, approve, implement, QC, present",
+  "author": {
+    "name": "Orkun Manap"
+  },
+  "repository": "https://github.com/manaporkun/task-workflow-skill",
+  "license": "MIT",
+  "keywords": [
+    "workflow",
+    "task",
+    "planning",
+    "code-review",
+    "multi-agent"
+  ]
+}
