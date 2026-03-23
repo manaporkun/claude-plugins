@@ -6,8 +6,8 @@ PASS=0
 FAIL=0
 ERRORS=""
 
-pass() { ((PASS++)); echo "  PASS: $1"; }
-fail() { ((FAIL++)); ERRORS+="  FAIL: $1"$'\n'; echo "  FAIL: $1"; }
+pass() { PASS=$((PASS + 1)); echo "  PASS: $1"; }
+fail() { FAIL=$((FAIL + 1)); ERRORS+="  FAIL: $1"$'\n'; echo "  FAIL: $1"; }
 
 echo "=== install.sh tests ==="
 
@@ -155,7 +155,7 @@ fi
 echo "[10] All 6 phases present in SKILL.md"
 PHASES_FOUND=0
 for phase in "Phase 1: PLAN" "Phase 2: ANALYZE" "Phase 3: APPROVE" "Phase 4: IMPLEMENT" "Phase 5: QUALITY" "Phase 6: PRESENT"; do
-  grep -q "$phase" "$SCRIPT_DIR/skills/do/SKILL.md" && ((PHASES_FOUND++))
+  grep -q "$phase" "$SCRIPT_DIR/skills/do/SKILL.md" && PHASES_FOUND=$((PHASES_FOUND + 1))
 done
 if [ "$PHASES_FOUND" -eq 6 ]; then
   pass "all 6 phases present"
