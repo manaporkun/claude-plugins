@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.2.0] - 2026-03-23
+
+### Security
+
+- **Trust warning for `agentCommands`** — Added security note in SKILL.md and README warning that custom commands execute in the user's shell. Only use in trusted projects.
+
+### Fixed
+
+- **Phase reference in README** — `agents.codeReview` config field now correctly references Phase 5b (was Phase 4).
+
+### Added
+
+- **`.gitignore`** — Excludes `.claude/plans/` and `.claude/settings.local.json` from version control.
+- **`configVersion` field** — Schema version (currently `1`) in `do-config.json` for forward compatibility.
+- **`skipReviewThreshold` config field** — Configurable small-plan threshold for skipping external review (default: 1 file, 2 steps).
+- **`maxCodeReviewIterations` config field** — Configurable max external code review iterations (default: 2).
+- **Installer robustness** — `install.sh` now checks for `~/.claude/` before proceeding.
+- **Parallel agent detection** — `which` checks run in a single loop instead of sequential commands.
+
+### Removed
+
+- **Stale development plan** — Removed `.claude/plans/do-skill-portability-improvements.md` from the repository.
+
 ## [1.1.1] - 2026-03-22
 
 ### Fixed
