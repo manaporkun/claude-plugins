@@ -28,7 +28,7 @@ Agent availability is cached at `~/.claude/do-env.json` to avoid redundant `whic
 
 **If `$ARGUMENTS` contains `--refresh-env`**: run `rm ~/.claude/do-env.json 2>/dev/null`, then strip `--refresh-env` from the task description before proceeding.
 
-1. **Read cache**: `cat ~/.claude/do-env.json 2>/dev/null`
+1. **Read cache**: `cat ~/.claude/do-env.json 2>/dev/null || true`
 2. **If cache exists and is valid JSON**:
    - Use the `agents` array and `ollamaModels` array from the cache
    - **Validate** (only if `agents` is non-empty): for CLI-based agents (`gemini`, `codex`, `ollama`, `claude`, `aider`), run `which <agent> 2>/dev/null` to confirm it's still installed. For `openrouter`, check `[ -n "${OPENROUTER_API_KEY:-}" ]`. For `openai`, check `[ -n "${OPENAI_API_KEY:-}${OPENAI_COMPATIBLE_API_KEY:-}" ]`. If validation fails for the first agent in the list or `agents` is empty, discard cache and proceed to step 3.
@@ -52,7 +52,7 @@ Run `uname -s` to record the platform (e.g. `Darwin` or `Linux`). This informs c
 
 These are project-specific and must be checked every time:
 
-1. **Project config**: `cat .claude/do-config.json 2>/dev/null`
+1. **Project config**: `cat .claude/do-config.json 2>/dev/null || true`
 2. **Project type**: `sh -c 'ls -1 package.json Podfile *.xcodeproj pyproject.toml requirements.txt go.mod Cargo.toml Makefile 2>/dev/null || echo "no project files"'`
 
 Record which agents are available and proceed. If no external agents are found, skip external review phases.
