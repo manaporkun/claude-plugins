@@ -138,13 +138,13 @@ If no config file exists, auto-detect everything from the environment output abo
 3. Create a temp file and write the assembled prompt to it:
    `PLAN_REVIEW_FILE=$(mktemp /tmp/do-plan-review-XXXXXX)` then write the prompt content to `$PLAN_REVIEW_FILE`
 4. Select the agent: use the first available entry from `agents.planReview` in config, or fall back to the first detected agent.
-5. Call the selected agent using the Bash tool with `timeout: 120000` (120 seconds):
+5. Call the selected agent using the Bash tool with `timeout: 60000` (60 seconds) for the first attempt. If it times out or fails, try the next agent with `timeout: 90000` (90 seconds). Agents that require authentication or network setup may need longer on first run.
    - **Gemini**: `cat $PLAN_REVIEW_FILE | gemini -p "Review the implementation plan provided via stdin. Respond in plain text." -o text`
    - **Codex**: `cat $PLAN_REVIEW_FILE | codex exec -q -`
    - **Ollama**: `cat $PLAN_REVIEW_FILE | ollama run <model>` — replace `<model>` with the model from the agent string (e.g. `ollama:qwen2.5-coder` → `qwen2.5-coder`)
    - **Custom**: If `agentCommands` defines a command for this agent, use it with `{file}` replaced by `$PLAN_REVIEW_FILE` and `{model}` replaced by the model name
    - Use the Bash tool's `timeout` parameter instead of the `timeout` shell command (which is unavailable on macOS)
-   - If the agent call times out or fails, try the next agent in the list. If all fail, note the failure and continue to the checkpoint.
+   - If all agents fail or time out, note the failure and continue to the checkpoint without external review.
 6. Clean up: `rm -f $PLAN_REVIEW_FILE` — **this MUST be the very next Bash command after the agent call**, regardless of whether it succeeded, failed, or timed out. Do not process the agent output or perform any other action before running cleanup. This prevents prompt content from remaining on disk if subsequent steps fail.
 7. Capture and analyze the feedback
 8. If the feedback suggests significant improvements:
@@ -220,7 +220,7 @@ Maximum **3 iterations** per failing command. If still failing after 3 attempts,
 4. Create a temp file and write the review prompt to it:
    `CODE_REVIEW_FILE=$(mktemp /tmp/do-code-review-XXXXXX)` then write the prompt content to `$CODE_REVIEW_FILE`
 5. Select the agent: use the first available entry from `agents.codeReview` in config, or fall back to the first detected agent.
-6. Call the selected agent (same invocation patterns and timeout as Phase 2, using `$CODE_REVIEW_FILE` as the temp file). For **Codex** specifically, you may also try `codex review` as an alternative.
+6. Call the selected agent (same invocation patterns and timeout strategy as Phase 2 — 60s first attempt, 90s fallback — using `$CODE_REVIEW_FILE` as the temp file). For **Codex** specifically, you may also try `codex review` as an alternative.
    Clean up: `rm -f $CODE_REVIEW_FILE` — **this MUST be the very next Bash command after the agent call**, regardless of outcome. Do not process output before cleanup.
 7. Analyze the feedback:
    - Fix **CRITICAL** issues immediately
