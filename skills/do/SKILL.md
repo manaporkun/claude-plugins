@@ -14,7 +14,15 @@ Present output to the user at each checkpoint marked with STOP.
 
 ## Input Validation
 
-If `$ARGUMENTS` is empty or contains only whitespace (after stripping `--refresh-env` if present):
+**If `$ARGUMENTS` contains `--continue`**: strip `--continue` from arguments, then:
+1. List saved plans: `ls .claude/plans/*.md 2>/dev/null`
+2. If no plans found: respond "No saved plans found in `.claude/plans/`." and STOP.
+3. If one plan exists: load it and skip to Phase 3 (APPROVE) with that plan. Announce: "Resuming plan: `<filename>`"
+4. If multiple plans exist: show the list and ask the user which to resume. Load the chosen plan and skip to Phase 3.
+
+**If `$ARGUMENTS` contains `--refresh-env`**: run `rm ~/.claude/do-env.json 2>/dev/null`, then strip `--refresh-env` from the task description before proceeding.
+
+If `$ARGUMENTS` is empty or contains only whitespace (after stripping flags):
 - Respond with: "Usage: `/do <task description>` — describe what you want to build, fix, or refactor."
 - **STOP. Do not proceed to any phase.**
 
@@ -104,11 +112,11 @@ Agent format:
 - `"gemini"` — Gemini CLI
 - `"codex"` — Codex CLI
 - `"ollama:<model>"` — Ollama with a specific model (e.g. `"ollama:qwen2.5-coder"`)
-- `"openrouter"` — OpenRouter API (default model: `google/gemini-2.0-flash-001`)
+- `"openrouter"` — OpenRouter API (default model: `google/gemini-3.1-pro-preview`)
 - `"openrouter:<model>"` — OpenRouter with a specific model (e.g. `"openrouter:anthropic/claude-sonnet-4"`)
 - `"claude"` — Claude Code headless mode (`claude -p`)
 - `"aider"` — Aider in dry-run review mode
-- `"openai"` — OpenAI-compatible API (default model: `gpt-4o`)
+- `"openai"` — OpenAI-compatible API (default model: `gpt-5.4`)
 - `"openai:<model>"` — OpenAI-compatible API with a specific model (e.g. `"openai:gpt-4.1-mini"`)
 
 If `agents` is omitted, all phases use the first available agent detected in the environment.
@@ -128,6 +136,7 @@ If no config file exists, auto-detect everything from the environment output abo
    - Use Grep/Glob for targeted lookups
 3. Create an implementation plan containing:
    - **Task Summary**: What needs to be done and why
+   - **Complexity Estimate**: Rate as Simple (1–2 files, ≤3 steps) / Medium (3–10 files, ≤10 steps) / Large (10+ files or 10+ steps), with a one-line scope summary
    - **Files to Modify/Create**: Each with a brief description of changes
    - **Implementation Steps**: Numbered, ordered, actionable
    - **Testing Strategy**: How to verify correctness
@@ -154,10 +163,10 @@ If no config file exists, auto-detect everything from the environment output abo
    - **Gemini**: `cat $PLAN_REVIEW_FILE | gemini -p "Review the implementation plan provided via stdin. Respond in plain text." -o text`
    - **Codex**: `cat $PLAN_REVIEW_FILE | codex exec -q -`
    - **Ollama**: `cat $PLAN_REVIEW_FILE | ollama run <model>` — replace `<model>` with the model from the agent string (e.g. `ollama:qwen2.5-coder` → `qwen2.5-coder`)
-   - **OpenRouter**: `${CLAUDE_SKILL_DIR}/scripts/openrouter.sh $PLAN_REVIEW_FILE <model>` — replace `<model>` with the model from the agent string (e.g. `openrouter:anthropic/claude-sonnet-4` → `anthropic/claude-sonnet-4`). If no model is specified, omit the second argument to use the default (`google/gemini-2.0-flash-001`). Requires `OPENROUTER_API_KEY` env var.
+   - **OpenRouter**: `${CLAUDE_SKILL_DIR}/scripts/openrouter.sh $PLAN_REVIEW_FILE <model>` — replace `<model>` with the model from the agent string (e.g. `openrouter:anthropic/claude-sonnet-4` → `anthropic/claude-sonnet-4`). If no model is specified, omit the second argument to use the default (`google/gemini-3.1-pro-preview`). Requires `OPENROUTER_API_KEY` env var.
    - **Claude Code**: `cat $PLAN_REVIEW_FILE | claude -p --bare --output-format text --allowedTools "Read"` — runs Claude Code in headless mode. Uses `--bare` to skip loading hooks/plugins/MCP for fast, deterministic execution.
    - **Aider**: `aider --no-auto-commits --no-git --dry-run --yes --message-file $PLAN_REVIEW_FILE` — runs Aider in read-only dry-run mode so it reviews without modifying files.
-   - **OpenAI-compatible**: `${CLAUDE_SKILL_DIR}/scripts/openai-compatible.sh $PLAN_REVIEW_FILE <model>` — works with any OpenAI-compatible API (OpenAI, Azure, LM Studio, etc.). Replace `<model>` with the model from the agent string (e.g. `openai:gpt-4.1-mini` → `gpt-4.1-mini`). If no model is specified, omit the second argument to use the default (`gpt-4o`). Requires `OPENAI_API_KEY` or `OPENAI_COMPATIBLE_API_KEY` env var. Set `OPENAI_BASE_URL` or `OPENAI_COMPATIBLE_BASE_URL` for non-OpenAI providers.
+   - **OpenAI-compatible**: `${CLAUDE_SKILL_DIR}/scripts/openai-compatible.sh $PLAN_REVIEW_FILE <model>` — works with any OpenAI-compatible API (OpenAI, Azure, LM Studio, etc.). Replace `<model>` with the model from the agent string (e.g. `openai:gpt-4.1-mini` → `gpt-4.1-mini`). If no model is specified, omit the second argument to use the default (`gpt-5.4`). Requires `OPENAI_API_KEY` or `OPENAI_COMPATIBLE_API_KEY` env var. Set `OPENAI_BASE_URL` or `OPENAI_COMPATIBLE_BASE_URL` for non-OpenAI providers.
    - **Custom**: If `agentCommands` defines a command for this agent, use it with `{file}` replaced by `$PLAN_REVIEW_FILE` and `{model}` replaced by the model name
    - Use the Bash tool's `timeout` parameter instead of the `timeout` shell command (which is unavailable on macOS)
    - If all agents fail or time out, note the failure and continue to the checkpoint without external review.
@@ -186,6 +195,14 @@ Present to the user:
 ---
 
 ## Phase 4: IMPLEMENT
+
+**Branch creation**: Before implementing, check if the working directory is a git repository:
+1. Run `git rev-parse --git-dir 2>/dev/null` — if this fails, skip branch creation silently (not a git repo).
+2. Run `git rev-parse --abbrev-ref HEAD 2>/dev/null` — if the current branch already starts with `do/`, skip branch creation silently.
+3. Otherwise, generate a branch name:
+   - Take the task description, lowercase it, replace spaces and special characters with hyphens, collapse multiple hyphens, strip leading/trailing hyphens
+   - Prefix with `do/` and truncate the slug to 50 characters total (e.g. `do/add-dark-mode-toggle`)
+4. Run `git checkout -b <branch-name>` and record the branch name for Phase 6.
 
 1. Review the approved plan
 2. For each implementation unit:
@@ -239,9 +256,10 @@ Maximum **3 iterations** per failing command. If still failing after 3 attempts,
 6. Call the selected agent (same invocation patterns and timeout strategy as Phase 2 — 60s first attempt, 90s fallback — using `$CODE_REVIEW_FILE` as the temp file). For **Codex** specifically, you may also try `codex review` as an alternative.
    Clean up: `rm -f $CODE_REVIEW_FILE` — **this MUST be the very next Bash command after the agent call**, regardless of outcome. Do not process output before cleanup.
 7. Analyze the feedback:
-   - Fix **CRITICAL** issues immediately
-   - Note **WARNING**s and fix if straightforward
-   - Log **SUGGESTION**s but do not necessarily act on all
+   - **CRITICAL** — Fix immediately before proceeding
+   - **WARNING** — Fix if straightforward; note if complex
+   - **SUGGESTION:safe** — Auto-apply if purely cosmetic (style, imports, naming with no logic change). These are low-risk and can be applied without user approval.
+   - **SUGGESTION:risky** — Log only. Do not auto-apply suggestions involving behavioral, architectural, or API changes. Surface them in Phase 6 as follow-up items.
 8. Re-run affected tests after fixes
 9. Maximum **N code review iterations**, where N comes from `maxCodeReviewIterations` in config (default: 2)
 

@@ -102,7 +102,8 @@ Use these levels strictly. When in doubt, downgrade:
 
 - **CRITICAL**: This code will break in production, lose data, or create a security vulnerability. The diff must not be merged without fixing this. Examples: SQL injection, null pointer on happy path, data corruption, auth bypass.
 - **WARNING**: This code will likely work but has a meaningful risk in edge cases, or violates a clear project pattern in a way that will cause confusion. Should be fixed. Examples: missing error handling on network call, race condition under load, inconsistent API response format.
-- **SUGGESTION**: This code works correctly but could be improved. Optional to fix. Examples: minor duplication, slightly misleading variable name, opportunity to use a built-in function.
+- **SUGGESTION:safe**: This code works correctly but could be improved with a low-risk, cosmetic change (style, imports, naming with no logic change). Auto-fixable by the implementer. Examples: minor duplication, opportunity to use a built-in, unused import.
+- **SUGGESTION:risky**: This code works correctly but a meaningful improvement involves behavioral or architectural change. Do not auto-apply — surface for human review. Examples: changing an algorithm, restructuring a module, altering an API contract.
 
 # Output Format
 
@@ -121,14 +122,16 @@ List issues in severity order (CRITICAL first):
 
 - **[CRITICAL]** `file.js:42` — Description of what's wrong. Impact: what happens if not fixed. Fix: specific code change or approach.
 - **[WARNING]** `file.js:88` — Description. Risk: when this could cause problems. Fix: specific change.
-- **[SUGGESTION]** `file.js:15` — Description. Benefit: why this improves the code.
+- **[SUGGESTION:safe]** `file.js:15` — Description. Benefit: why this improves the code.
+- **[SUGGESTION:risky]** `file.js:20` — Description. Benefit: why this improves the code. Risk: what could go wrong if applied carelessly.
 
 ### Summary
 
 - Plan items completed: X/Y
 - Critical issues: N
 - Warnings: N
-- Suggestions: N
+- Suggestions (safe): N
+- Suggestions (risky): N
 - Verdict: [PASS / FAIL]
 
 PASS = no CRITICAL issues, plan substantially complete
@@ -148,7 +151,8 @@ None found.
 - Plan items completed: X/X
 - Critical issues: 0
 - Warnings: 0
-- Suggestions: 0
+- Suggestions (safe): 0
+- Suggestions (risky): 0
 - Verdict: PASS
 
 Clean implementation. All plan items addressed, no quality issues found.

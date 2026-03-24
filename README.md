@@ -17,16 +17,22 @@ A Claude Code skill that turns any task into a systematic, quality-controlled wo
 
 That's it. The skill auto-detects your project type and any available review agents. No configuration needed.
 
+To resume an interrupted workflow from a saved plan:
+
+```
+/do --continue
+```
+
 ## How It Works
 
 | Phase | What happens |
 |---|---|
-| **1. Plan** | Claude researches the codebase and creates a step-by-step implementation plan |
+| **1. Plan** | Claude researches the codebase and creates a step-by-step implementation plan with a complexity estimate |
 | **2. Analyze** | An external agent (Gemini, Codex, Claude, etc.) independently reviews the plan |
 | **3. Approve** | You review the plan + feedback and approve, reject, or request changes |
-| **4. Implement** | Claude spawns subagents to implement the approved plan in parallel |
-| **5. QC** | Automated tests/builds run, then an external agent reviews the code diff |
-| **6. Present** | Summary of changes, QC results, and outstanding items for final approval |
+| **4. Implement** | Auto-creates a `do/<task-slug>` git branch, then spawns subagents to implement the approved plan |
+| **5. QC** | Automated tests/builds run, then an external agent reviews the diff — safe suggestions are auto-applied, risky ones are surfaced for review |
+| **6. Present** | Summary of changes, branch name, QC results, and outstanding items for final approval |
 
 ## Supported Agents
 
@@ -48,12 +54,19 @@ Agent availability is cached at `~/.claude/do-env.json`. To force re-detection:
 /do --refresh-env <task description>
 ```
 
+## Flags
+
+| Flag | Description |
+|---|---|
+| `--continue` | Resume from a saved plan in `.claude/plans/`. Skips planning and jumps straight to approval. |
+| `--refresh-env` | Clear the agent detection cache and re-detect available agents before running. |
+
 ## Installation
 
 ### Plugin marketplace
 
 ```
-/plugin marketplace add manaporkun/claude-plugin-marketplace
+/plugin marketplace add manaporkun/task-workflow-skill
 /plugin install task-workflow-skill
 /reload-plugins
 ```
@@ -105,7 +118,7 @@ Each entry is an ordered fallback list — the skill tries the first available a
 | `"openrouter:<model>"` | `"openrouter:anthropic/claude-sonnet-4"` | OpenRouter with a specific model |
 | `"openai:<model>"` | `"openai:gpt-4.1-mini"` | Any OpenAI-compatible API |
 
-Agents without `:<model>` use their default model. `openrouter` defaults to `google/gemini-2.0-flash-001`, `openai` defaults to `gpt-4o`.
+Agents without `:<model>` use their default model. `openrouter` defaults to `google/gemini-3.1-pro-preview`, `openai` defaults to `gpt-5.4`.
 
 ### QC commands
 
@@ -158,21 +171,15 @@ task-workflow-skill/
 │   └── scripts/
 │       ├── openrouter.sh         # OpenRouter API integration
 │       └── openai-compatible.sh  # OpenAI-compatible API integration
-├── .claude-plugin/plugin.json    # Plugin manifest
+├── .claude-plugin/
+│   ├── plugin.json               # Plugin manifest
+│   └── marketplace.json          # Marketplace catalog
 ├── install.sh                    # Symlink installer
 ├── CHANGELOG.md
 └── LICENSE
 ```
 
 ## Troubleshooting
-
-**Stale plugin cache**: If you previously added `manaporkun/task-workflow-skill` as a marketplace (instead of the separate catalog repo), clear stale entries:
-
-```bash
-rm -rf ~/.claude/plugins/cache/*task-workflow-skill* \
-       ~/.claude/plugins/installed/*task-workflow-skill* \
-       ~/.claude/plugins/marketplaces/manaporkun-task-workflow-skill*
-```
 
 **Agent not detected**: Run `/do --refresh-env <task>` or delete `~/.claude/do-env.json`.
 

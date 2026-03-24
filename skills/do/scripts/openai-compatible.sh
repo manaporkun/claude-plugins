@@ -9,7 +9,7 @@
 set -euo pipefail
 
 PROMPT_FILE="${1:?Usage: openai-compatible.sh <prompt-file> [model]}"
-MODEL="${2:-gpt-4o}"
+MODEL="${2:-gpt-5.4}"
 
 # Support both standard OpenAI and custom env var names
 API_KEY="${OPENAI_COMPATIBLE_API_KEY:-${OPENAI_API_KEY:-}}"
