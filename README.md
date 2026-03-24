@@ -67,11 +67,11 @@ Agent availability is cached at `~/.claude/do-env.json`. To force re-detection:
 
 ```
 /plugin marketplace add manaporkun/claude-plugins
-/plugin install task-workflow-skill
+/plugin install task
 /reload-plugins
 ```
 
-The skill is available as `/task-workflow-skill:do`.
+The skill is available as `/task:do`.
 
 ### Symlink installer
 
