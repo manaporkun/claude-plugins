@@ -77,15 +77,15 @@ The skill is available as `/task:do`.
 
 ```bash
 git clone https://github.com/manaporkun/claude-plugins.git
-cd claude-plugins && ./install.sh
+cd claude-plugins && ./plugins/task/install.sh
 ```
 
 Creates a symlink so `git pull` updates take effect immediately. The skill is available as `/do`.
 
 ### Other options
 
-- **Direct loading**: `claude --plugin-dir ./claude-plugins`
-- **Manual copy**: Copy `skills/do/` into `~/.claude/skills/` (user-wide) or `.claude/skills/` (project-scoped)
+- **Direct loading**: `claude --plugin-dir ./plugins/task`
+- **Manual copy**: Copy `plugins/task/skills/do/` into `~/.claude/skills/` (user-wide) or `.claude/skills/` (project-scoped)
 
 ## Configuration
 
@@ -162,19 +162,22 @@ When using cloud-based agents, the skill sends your implementation plans and cod
 ## File Structure
 
 ```
-task-workflow-skill/
-├── skills/do/
-│   ├── SKILL.md              # Workflow orchestrator
-│   ├── prompts/
-│   │   ├── plan-review.md    # Plan review prompt template
-│   │   └── code-review.md    # Code review prompt template
-│   └── scripts/
-│       ├── openrouter.sh         # OpenRouter API integration
-│       └── openai-compatible.sh  # OpenAI-compatible API integration
+claude-plugins/
 ├── .claude-plugin/
-│   ├── plugin.json               # Plugin manifest
 │   └── marketplace.json          # Marketplace catalog
-├── install.sh                    # Symlink installer
+├── plugins/
+│   └── task/
+│       ├── .claude-plugin/
+│       │   └── plugin.json       # Plugin manifest
+│       ├── skills/do/
+│       │   ├── SKILL.md          # Workflow orchestrator
+│       │   ├── prompts/
+│       │   │   ├── plan-review.md
+│       │   │   └── code-review.md
+│       │   └── scripts/
+│       │       ├── openrouter.sh
+│       │       └── openai-compatible.sh
+│       └── install.sh            # Symlink installer
 ├── CHANGELOG.md
 └── LICENSE
 ```
