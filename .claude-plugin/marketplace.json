@@ -1,6 +1,6 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "claude-plugins",
+  "name": "manaporkun-plugins",
   "version": "1.4.0",
   "description": "Claude Code plugins by Orkun Manap",
   "owner": {
@@ -14,7 +14,7 @@
       "author": {
         "name": "Orkun Manap"
       },
-      "source": ".",
+      "source": "./plugins/task",
       "category": "productivity"
     }
   ]
