@@ -7,7 +7,7 @@
 set -euo pipefail
 
 PROMPT_FILE="${1:?Usage: openrouter.sh <prompt-file> [model]}"
-MODEL="${2:-google/gemini-2.0-flash-001}"
+MODEL="${2:-google/gemini-3.1-pro-preview}"
 
 if [ -z "${OPENROUTER_API_KEY:-}" ]; then
   echo "Error: OPENROUTER_API_KEY environment variable is not set." >&2

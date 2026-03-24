@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "task-workflow-skill",
+  "version": "1.4.0",
+  "description": "Marketplace for task-workflow-skill plugins",
+  "owner": {
+    "name": "Orkun Manap"
+  },
+  "plugins": [
+    {
+      "name": "task-workflow-skill",
+      "description": "Structured task execution with multi-agent review: plan, analyze, approve, implement, QC, present",
+      "version": "1.4.0",
+      "author": {
+        "name": "Orkun Manap"
+      },
+      "source": ".",
+      "category": "productivity"
+    }
+  ]
+}

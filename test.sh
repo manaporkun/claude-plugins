@@ -151,8 +151,28 @@ else
   fail "missing placeholders — plan-review: $PLAN_OK, code-review: $CODE_OK"
 fi
 
+# Test: marketplace.json is valid JSON with required fields and consistent version
+echo "[10] marketplace.json is valid JSON with required fields and version consistency"
+if python3 -c "
+import json, sys
+d = json.load(open('$SCRIPT_DIR/.claude-plugin/marketplace.json'))
+assert 'name' in d, 'missing name'
+assert 'version' in d, 'missing version'
+assert 'plugins' in d and len(d['plugins']) > 0, 'missing plugins'
+plugin = d['plugins'][0]
+assert 'name' in plugin, 'plugin missing name'
+assert 'source' in plugin, 'plugin missing source'
+p = json.load(open('$SCRIPT_DIR/.claude-plugin/plugin.json'))
+assert d['version'] == p['version'], f'marketplace version {d[\"version\"]} != plugin.json version {p[\"version\"]}'
+assert plugin['version'] == p['version'], f'marketplace plugin version {plugin[\"version\"]} != plugin.json version {p[\"version\"]}'
+" 2>/dev/null; then
+  pass "marketplace.json valid and versions consistent"
+else
+  fail "marketplace.json invalid, missing fields, or version mismatch with plugin.json"
+fi
+
 # Test: All phases present in SKILL.md
-echo "[10] All 6 phases present in SKILL.md"
+echo "[11] All 6 phases present in SKILL.md"
 PHASES_FOUND=0
 for phase in "Phase 1: PLAN" "Phase 2: ANALYZE" "Phase 3: APPROVE" "Phase 4: IMPLEMENT" "Phase 5: QUALITY" "Phase 6: PRESENT"; do
   grep -q "$phase" "$SCRIPT_DIR/skills/do/SKILL.md" && PHASES_FOUND=$((PHASES_FOUND + 1))
@@ -160,7 +180,7 @@ done
 if [ "$PHASES_FOUND" -eq 6 ]; then
   pass "all 6 phases present"
 else
-  fail "only $PHASES_FOUND/6 phases found"
+  fail "only $PHASES_FOUND/6 phases found in SKILL.md"
 fi
 
 echo ""
