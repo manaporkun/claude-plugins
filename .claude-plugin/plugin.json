@@ -1,5 +1,5 @@
 {
-  "name": "task-workflow-skill",
+  "name": "task",
   "version": "1.4.0",
   "description": "Structured task execution with multi-agent review: plan, analyze, approve, implement, QC, present",
   "author": {
