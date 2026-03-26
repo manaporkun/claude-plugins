@@ -17,7 +17,58 @@ jobs:
       - name: Generate release-please config
         run: python3 scripts/plugin_versions.py sync-all --write
 
-      - uses: googleapis/release-please-action@v4
+      - id: release
+        uses: googleapis/release-please-action@v4
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      - name: Resolve release PR branch
+        if: ${{ steps.release.outputs.prs_created == 'true' }}
+        id: release-pr-branch
+        env:
+          RELEASE_PR: ${{ steps.release.outputs.pr }}
+          RELEASE_PRS: ${{ steps.release.outputs.prs }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import os
+
+          pr_raw = os.environ.get("RELEASE_PR", "").strip()
+          prs_raw = os.environ.get("RELEASE_PRS", "").strip()
+
+          branch = ""
+          if pr_raw:
+              branch = json.loads(pr_raw)["headBranchName"]
+          elif prs_raw:
+              branch = json.loads(prs_raw)[0]["headBranchName"]
+
+          if not branch:
+              raise SystemExit("Could not determine release PR branch from release-please outputs")
+
+          print(f"branch={branch}")
+          PY
+
+      - name: Check out release PR branch
+        if: ${{ steps.release.outputs.prs_created == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release-pr-branch.outputs.branch }}
+
+      - name: Sync release PR metadata
+        if: ${{ steps.release.outputs.prs_created == 'true' }}
+        run: python3 scripts/plugin_versions.py sync-all --write
+
+      - name: Commit synced release metadata
+        if: ${{ steps.release.outputs.prs_created == 'true' }}
+        run: |
+          if git diff --quiet; then
+            echo "No metadata changes to commit"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .claude-plugin/marketplace.json release-please-config.json .release-please-manifest.json
+          git commit -m "chore: sync release metadata"
+          git push
