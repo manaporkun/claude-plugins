@@ -93,7 +93,7 @@ Schema:
   },
   "agentCommands": {
     "gemini": "cat {file} | gemini -p \"Review the content provided via stdin. Respond in plain text.\" -o text",
-    "codex": "cat {file} | codex exec -q -",
+    "codex": "cat {file} | codex exec --json -",
     "ollama": "cat {file} | ollama run {model}",
     "openrouter": "${CLAUDE_SKILL_DIR}/scripts/openrouter.sh {file} {model}",
     "claude": "cat {file} | claude -p --bare --output-format text --allowedTools \"Read\"",
@@ -168,12 +168,16 @@ If no config file exists, auto-detect everything from the environment output abo
    - `{TASK}` → the task description ($ARGUMENTS)
    - `{PLAN}` → the full plan content
    - `{CONTEXT}` → brief codebase context (key file paths, interfaces involved)
-3. Create a temp file and write the assembled prompt to it:
-   `PLAN_REVIEW_FILE=$(mktemp /tmp/do-plan-review-XXXXXX)` then write the prompt content to `$PLAN_REVIEW_FILE`
+3. Create a temp file and write the assembled prompt to it using a **single Bash command** (do NOT use the Write tool — it will fail on new temp files):
+   ```bash
+   PLAN_REVIEW_FILE=$(mktemp /tmp/do-plan-review-XXXXXX) && cat > "$PLAN_REVIEW_FILE" << 'PLAN_EOF'
+   <prompt content here>
+   PLAN_EOF
+   ```
 4. Select the agent: use the first available entry from `agents.planReview` in config, or fall back to the first detected agent.
 5. Call the selected agent using the Bash tool with `timeout: 60000` (60 seconds) for the first attempt. If it times out or fails, try the next agent with `timeout: 90000` (90 seconds). Agents that require authentication or network setup may need longer on first run.
    - **Gemini**: `cat $PLAN_REVIEW_FILE | gemini -p "Review the implementation plan provided via stdin. Respond in plain text." -o text`
-   - **Codex**: `cat $PLAN_REVIEW_FILE | codex exec -q -`
+   - **Codex**: `cat $PLAN_REVIEW_FILE | codex exec --json -`
    - **Ollama**: `cat $PLAN_REVIEW_FILE | ollama run <model>` — replace `<model>` with the model from the agent string (e.g. `ollama:qwen2.5-coder` → `qwen2.5-coder`)
    - **OpenRouter**: `${CLAUDE_SKILL_DIR}/scripts/openrouter.sh $PLAN_REVIEW_FILE <model>` — replace `<model>` with the model from the agent string (e.g. `openrouter:anthropic/claude-sonnet-4` → `anthropic/claude-sonnet-4`). If no model is specified, omit the second argument to use the default (`google/gemini-3.1-pro-preview`). Requires `OPENROUTER_API_KEY` env var.
    - **Claude Code**: `cat $PLAN_REVIEW_FILE | claude -p --bare --output-format text --allowedTools "Read"` — runs Claude Code in headless mode. Uses `--bare` to skip loading hooks/plugins/MCP for fast, deterministic execution.
@@ -263,8 +267,12 @@ Maximum **3 iterations** per failing command. If still failing after 3 attempts,
    - `{TASK}` → the task description ($ARGUMENTS)
    - `{PLAN}` → the approved plan content
    - `{DIFF}` → the full diff output
-4. Create a temp file and write the review prompt to it:
-   `CODE_REVIEW_FILE=$(mktemp /tmp/do-code-review-XXXXXX)` then write the prompt content to `$CODE_REVIEW_FILE`
+4. Create a temp file and write the review prompt to it using a **single Bash command** (do NOT use the Write tool — it will fail on new temp files):
+   ```bash
+   CODE_REVIEW_FILE=$(mktemp /tmp/do-code-review-XXXXXX) && cat > "$CODE_REVIEW_FILE" << 'REVIEW_EOF'
+   <review prompt content here>
+   REVIEW_EOF
+   ```
 5. Select the agent: use the first available entry from `agents.codeReview` in config, or fall back to the first detected agent.
 6. Call the selected agent (same invocation patterns and timeout strategy as Phase 2 — 60s first attempt, 90s fallback — using `$CODE_REVIEW_FILE` as the temp file). For **Codex** specifically, you may also try `codex review` as an alternative.
    Clean up: `rm -f $CODE_REVIEW_FILE` — **this MUST be the very next Bash command after the agent call**, regardless of outcome. Do not process output before cleanup.
