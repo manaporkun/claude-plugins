@@ -99,7 +99,7 @@ Plugin versions are managed independently. The repository uses a generated Relea
 
 - one root package for the overall marketplace release
 - one Release Please package per `plugins/*` directory
-- one follow-up workflow that syncs `.claude-plugin/marketplace.json` on release PR branches
+- one post-processing step in the release workflow that syncs `.claude-plugin/marketplace.json` onto the release PR branch
 
 ### Normal workflow for skill changes
 
@@ -121,7 +121,7 @@ bash test.sh
 
 4. Push your branch and merge it to `main`.
 5. After the merge, the release workflow runs and Release Please opens or updates the release PR.
-6. A follow-up workflow syncs the marketplace entry versions onto that release PR branch automatically.
+6. The same release workflow syncs the marketplace entry versions onto that release PR branch automatically.
 7. Merge the release PR to apply the version bump and changelog entries.
 
 For a normal plugin change, the release PR updates:
