@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/manaporkun/claude-plugins/compare/v1.6.4...v1.7.0) (2026-03-29)
+
+
+### Features
+
+* **task:** auto-detect and run project linters in QC phase ([8f40948](https://github.com/manaporkun/claude-plugins/commit/8f4094893eee3ea690d83dc491e147212d577f4b))
+
 ## [1.6.4](https://github.com/manaporkun/claude-plugins/compare/v1.6.3...v1.6.4) (2026-03-26)
 
 
