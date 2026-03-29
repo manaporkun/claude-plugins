@@ -211,6 +211,14 @@ else
   fail "only $PHASES_FOUND/6 phases found in SKILL.md"
 fi
 
+# Test: Linter auto-detection section in SKILL.md
+echo "[14] SKILL.md contains linter auto-detection section"
+if grep -q "Linter auto-detection" "$SCRIPT_DIR/plugins/task/skills/do/SKILL.md"; then
+  pass "linter auto-detection section present"
+else
+  fail "SKILL.md missing linter auto-detection section"
+fi
+
 echo ""
 echo "=== Results ==="
 echo "Passed: $PASS"

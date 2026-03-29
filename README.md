@@ -211,10 +211,22 @@ Override auto-detected test/build/lint commands:
   "qc": {
     "test": "npm test",
     "build": "npm run build",
-    "lint": "eslint ."
+    "lint": "eslint . --fix"
   }
 }
 ```
+
+`qc.lint` also accepts an array to run multiple linters in order:
+
+```json
+{
+  "qc": {
+    "lint": ["eslint . --fix", "prettier --write ."]
+  }
+}
+```
+
+When `qc.lint` is set, it overrides auto-detection. When omitted, `/do` auto-detects linters from config files in your project root (see [Linter Auto-Detection](#linter-auto-detection)).
 
 ### All config fields
 
@@ -226,7 +238,7 @@ Override auto-detected test/build/lint commands:
 | `agentCommands` | object | built-in | Custom shell commands per agent (`{file}` = prompt path, `{model}` = model name) |
 | `qc.test` | string | auto | Test command |
 | `qc.build` | string | auto | Build command |
-| `qc.lint` | string | auto | Lint command |
+| `qc.lint` | string \| string[] | auto | Lint command(s) — overrides auto-detection |
 | `maxIterations` | number | `3` | Max QC fix iterations per failing command |
 | `maxCodeReviewIterations` | number | `2` | Max external code review rounds |
 | `skipReviewThreshold` | object | `{"maxFiles":1,"maxSteps":2}` | Skip external plan review for small plans |
@@ -236,6 +248,19 @@ Override auto-detected test/build/lint commands:
 ## Supported Project Types
 
 Auto-detection for: **Node.js** (package.json), **iOS/macOS** (Podfile, *.xcodeproj), **Python** (pyproject.toml, requirements.txt), **Go** (go.mod), **Rust** (Cargo.toml). For other project types, specify QC commands in config.
+
+### Linter Auto-Detection
+
+During Phase 5 (QC), `/do` automatically detects linters by checking for their config files in the project root — no manual setup needed. Detected linters run with `--fix` flags where available.
+
+| Ecosystem | Detected Linters |
+|---|---|
+| Node.js | ESLint (`.eslintrc*`, `eslint.config.*`), Biome (`biome.json`), Prettier (`.prettierrc*`), oxlint (`.oxlintrc.json`) |
+| Python | Ruff (`ruff.toml`, `[tool.ruff]` in pyproject.toml), Flake8 (`.flake8`), Pylint (`.pylintrc`), mypy (`mypy.ini`) |
+| Go | golangci-lint (`.golangci.yml`), `go vet` (always) |
+| Rust | Clippy (always), rustfmt (`rustfmt.toml`) |
+
+Linters only run if the binary is installed — nothing is auto-installed. To override detection, set `qc.lint` in config.
 
 ## Privacy
 

@@ -233,25 +233,80 @@ Present to the user:
 
 ## Phase 5: QUALITY CONTROL
 
-### 5a — Automated Testing
+### 5a — Automated Testing & Linting
+
+#### Test & build commands
 
 Run QC commands based on project type (or config overrides). **Before running any auto-detected command, verify it exists**:
 
 - **Node.js**: Run `node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"` before attempting `npm test`. Only run `npm run build` if a `build` script exists. Only run `npx playwright test` if `playwright` is in dependencies.
 - **Python/Go/Rust/iOS**: Check the relevant tool is installed (`which pytest`, `which go`, etc.) before running.
-- **If no QC commands are applicable or available**: Skip automated testing with a note: "No applicable QC commands detected — skipping automated testing." and proceed to 5b.
+- **If no QC commands are applicable or available**: Skip automated testing with a note: "No applicable QC commands detected — skipping automated testing."
 
 | Type | Commands |
 |---|---|
 | Node.js | `npm test` (if test script exists), `npx playwright test` (if installed), `npm run build` (if build script exists) |
 | iOS/macOS | `xcodebuild -scheme <scheme> -destination 'platform=iOS Simulator,name=iPhone 16' build` |
-| Python | `pytest`, `ruff check .` |
-| Go | `go test ./...`, `go vet ./...` |
-| Rust | `cargo test`, `cargo clippy` |
+| Python | `pytest` |
+| Go | `go test ./...` |
+| Rust | `cargo test` |
 | Other | Check Makefile, CI config, or `.claude/do-config.json` for commands |
 
-On failure: analyze the error, fix the issue, re-run the failing command.
-Maximum **3 iterations** per failing command. If still failing after 3 attempts, report the failure and continue.
+#### Linter auto-detection
+
+If `qc.lint` is set in `.claude/do-config.json`, run that command (or each command if it's an array) and **skip auto-detection**. `qc.lint` accepts a string or an array of strings:
+- `"lint": "eslint . --fix"` — single command
+- `"lint": ["eslint . --fix", "prettier --write ."]` — multiple commands, run in order
+
+Otherwise, detect linters by checking for config files in the project root. Run all checks in a **single Bash command**:
+
+```bash
+sh -c 'ls -1 .eslintrc* eslint.config.* biome.json biome.jsonc .prettierrc* prettier.config.* .oxlintrc.json ruff.toml .flake8 .pylintrc pylintrc mypy.ini .mypy.ini .golangci.yml .golangci.yaml .golangci.toml .golangci.json rustfmt.toml .rustfmt.toml 2>/dev/null; grep -l "\[tool\.ruff\]\|\[tool\.pylint\]\|\[tool\.mypy\]" pyproject.toml 2>/dev/null; grep -l "\[flake8\]" setup.cfg 2>/dev/null; true'
+```
+
+For each detected config file, map it to a linter using this registry. Then verify the binary is available before running.
+
+**Linter registry:**
+
+| Ecosystem | Config indicator | Binary check | Fix command | Check-only command |
+|---|---|---|---|---|
+| Node.js | `.eslintrc*`, `eslint.config.*` | `npx --no-install eslint --version 2>/dev/null` | `npx eslint . --fix` | `npx eslint .` |
+| Node.js | `biome.json`, `biome.jsonc` | `npx --no-install biome --version 2>/dev/null` | `npx biome check . --fix` | `npx biome check .` |
+| Node.js | `.prettierrc*`, `prettier.config.*` | `npx --no-install prettier --version 2>/dev/null` | `npx prettier --write .` | `npx prettier --check .` |
+| Node.js | `.oxlintrc.json` | `npx --no-install oxlint --version 2>/dev/null` | `npx oxlint . --fix` | `npx oxlint .` |
+| Python | `ruff.toml`, or `[tool.ruff]` in `pyproject.toml` | `which ruff 2>/dev/null` | `ruff check . --fix` | `ruff check .` |
+| Python | `.flake8`, or `[flake8]` in `setup.cfg` | `which flake8 2>/dev/null` | *(no auto-fix)* | `flake8 .` |
+| Python | `.pylintrc`, `pylintrc`, or `[tool.pylint]` in `pyproject.toml` | `which pylint 2>/dev/null` | *(no auto-fix)* | `pylint <changed_files>` |
+| Python | `mypy.ini`, `.mypy.ini`, or `[tool.mypy]` in `pyproject.toml` | `which mypy 2>/dev/null` | *(no auto-fix)* | `mypy .` |
+| Go | `.golangci.yml` / `.yaml` / `.toml` / `.json` | `which golangci-lint 2>/dev/null` | `golangci-lint run --fix` | `golangci-lint run` |
+| Go | *(always if `go.mod` exists)* | `which go 2>/dev/null` | *(no auto-fix)* | `go vet ./...` |
+| Rust | *(always if `Cargo.toml` exists)* | `which cargo 2>/dev/null` | `cargo clippy --fix --allow-dirty -- -D warnings` | `cargo clippy -- -D warnings` |
+| Rust | `rustfmt.toml`, `.rustfmt.toml` | `which cargo 2>/dev/null` | `cargo fmt` | `cargo fmt --check` |
+
+If a config file is found but the binary is not available, skip with a note: "Detected `<config>` but `<tool>` is not installed — skipping."
+
+If no linters are detected and `qc.lint` is not set: "No linter config files detected — skipping lint step." Proceed to 5b.
+
+#### Execution order
+
+Run detected linters in this order:
+
+1. **Formatters** (Prettier, Biome, `cargo fmt`) — run with auto-fix flags first so style issues are resolved before linters check logic
+2. **Linters** (ESLint, oxlint, Ruff, Flake8, Pylint, golangci-lint, `go vet`, Clippy) — run with `--fix` where supported
+3. **Type checkers** (mypy) — report only, no auto-fix
+
+#### Changed-files optimization
+
+Get the list of changed files: `git diff --name-only HEAD`
+
+When **≤ 20 files** changed, pass only the changed files (filtered by relevant extension) to linters that support file targeting: ESLint, Prettier, oxlint, Ruff, Flake8, Pylint, mypy.
+
+Always run project-wide for: Biome, golangci-lint, Cargo clippy, `cargo fmt`, `go vet`.
+
+#### Fix loop
+
+On failure: analyze the error, fix the issue, re-run the failing linter.
+Maximum **N iterations** per failing command, where N comes from `maxIterations` in config (default: 3). If still failing after max attempts, report the failure and continue to 5b.
 
 ### 5b — External Code Review
 
