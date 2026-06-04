@@ -39,9 +39,7 @@ Before starting Phase 1, detect available agents and project context.
 
 ### Agent detection (cached)
 
-Agent availability is cached at `~/.claude/do-env.json` to avoid redundant `which` checks on every invocation.
-
-**If `$ARGUMENTS` contains `--refresh-env`**: run `rm ~/.claude/do-env.json 2>/dev/null`, then strip `--refresh-env` from the task description before proceeding.
+Agent availability is cached at `~/.claude/do-env.json` to avoid redundant `which` checks on every invocation. (The `--refresh-env` flag, handled in Input Validation above, clears this cache before detection runs.)
 
 1. **Read cache**: `cat ~/.claude/do-env.json 2>/dev/null || true`
 2. **If cache exists and is valid JSON**:
